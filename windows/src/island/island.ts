@@ -35,6 +35,16 @@ const BOT_SIDE = 24;
 /** Same margin as the Rust hit test (src-tauri/src/island.rs). */
 const HIT_MARGIN = 14;
 
+/**
+ * Linux has no GPU compositing for this window under GNOME's Wayland (the
+ * transparent island is rendered in software), where 60 fps of canvas redraws
+ * pegs a core of a modest CPU — and a pegged core is what makes a click wait
+ * seconds before anything shows. 30 fps still reads as smooth at Mochi's size
+ * and halves the burn.
+ */
+const FRAME_BUDGET_MS =
+  typeof navigator !== "undefined" && /Linux/i.test(navigator.userAgent) ? 1000 / 30 : 0;
+
 /** The three views the drop sequence owns; leaving them stops the engine. */
 const UPLOAD_VIEWS: ReadonlySet<IslandViewName> = new Set(["upload", "uploading", "choose"]);
 
@@ -960,6 +970,11 @@ export class Island {
   }
 
   private frame = (nowMs: number) => {
+    if (FRAME_BUDGET_MS !== 0 && nowMs - this.lastFrame < FRAME_BUDGET_MS - 2) {
+      // Too soon after the last drawn frame: skip it, keep the loop alive.
+      requestAnimationFrame(this.frame);
+      return;
+    }
     const dt = Math.min(0.05, (nowMs - this.lastFrame) / 1000);
     this.lastFrame = nowMs;
 
