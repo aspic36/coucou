@@ -1,6 +1,7 @@
 // Cloud providers that speak the OpenAI chat completions API: OpenAI, Google AI
-// (Gemini's OpenAI-compatible endpoint, as ClaudeService.swift uses it) and
-// OpenRouter. One table describes them; one client talks to all three.
+// (Gemini's OpenAI-compatible endpoint, as ClaudeService.swift uses it),
+// OpenRouter and GitHub Models. One table describes them; one client talks to
+// all of them.
 //
 // Same contract as claude.rs: the key never leaves the credential store and
 // file bytes never cross the IPC boundary. Chat only — no tools are sent, so
@@ -63,6 +64,16 @@ pub const PROVIDERS: &[Provider] = &[
         models_path: "models",
         default_model: "openrouter/auto",
         not_chat: &[],
+        max_tokens_field: "max_tokens",
+    },
+    Provider {
+        id: "github",
+        name: "GitHub Models",
+        base_url: "https://models.github.ai/inference",
+        key: "github-models-token",
+        models_path: "models",
+        default_model: "openai/gpt-4o-mini",
+        not_chat: &["embed", "rerank"],
         max_tokens_field: "max_tokens",
     },
 ];
