@@ -359,7 +359,15 @@ pub fn apply_geometry(app: &AppHandle, pref: &str, collapsed: bool) {
     let mp = *m.position();
     let ms = *m.size();
 
-    let (lw, lh) = if collapsed { (STRIP_W, STRIP_H) } else { (PANEL_W, PANEL_H) };
+    // On Linux the window keeps the panel size whatever the island shows: the
+    // wayland resize round-trip is what made opening the chat feel slow, and
+    // the input region (see refresh_click_through) already makes every pixel
+    // outside the island or the wake strip click-through.
+    let (lw, lh) = if collapsed && !cfg!(target_os = "linux") {
+        (STRIP_W, STRIP_H)
+    } else {
+        (PANEL_W, PANEL_H)
+    };
     let pw = (lw * scale).round().max(1.0) as u32;
     let ph = (lh * scale).round().max(1.0) as u32;
     let x = mp.x + (ms.width as i32 - pw as i32) / 2;
@@ -517,8 +525,13 @@ pub fn refresh_click_through(app: &AppHandle, gate: &PollGate) {
     let region = if gate.collapsed.load(Ordering::Relaxed) {
         // The wake strip itself, never "the whole window": if the window ever
         // fails to shrink to the strip, the rest of it must not swallow clicks
-        // meant for whatever sits under the top of the screen.
-        Some((0.0, 0.0, STRIP_W, STRIP_H))
+        // meant for whatever sits under the top of the screen. On Linux the
+        // window keeps the panel size, so the strip sits centred in it.
+        if cfg!(target_os = "linux") {
+            Some(((PANEL_W - STRIP_W) / 2.0, 0.0, STRIP_W, STRIP_H))
+        } else {
+            Some((0.0, 0.0, STRIP_W, STRIP_H))
+        }
     } else {
         let r = *gate.rect.lock().unwrap();
         if r.w <= 0.0 {

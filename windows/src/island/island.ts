@@ -87,6 +87,7 @@ export class Island {
   private wasInIsland = false;
   /** Last shape handed to Rust for the click-through test. */
   private pushedRect = { x: -1, y: -1, w: -1, h: -1 };
+  private pushedRectAt = 0;
 
   // Bot hover → love (IslandWindowController.botHoverIn)
   private botHovering = false;
@@ -684,8 +685,18 @@ export class Island {
     const viewportW = window.innerWidth > 0 ? window.innerWidth : PANEL_W;
     const rect = { x: (viewportW - w) / 2, y: 0, w, h: hh };
     const p = this.pushedRect;
-    if (Math.abs(p.x - rect.x) > 0.5 || Math.abs(p.w - rect.w) > 0.5 || Math.abs(p.h - rect.h) > 0.5) {
+    // The hit region is part of the name, so it must follow the island — but at
+    // 60 Hz the IPC + GTK input-region round trip is jank for a region nobody
+    // aims at while it grows: 30 Hz and up to 2 px late it is not.
+    const now = performance.now();
+    const dx = Math.abs(p.x - rect.x);
+    const dw = Math.abs(p.w - rect.w);
+    const dh = Math.abs(p.h - rect.h);
+    const jumped = dx > 8 || dw > 8 || dh > 8;
+    const moved = dx > 2 || dw > 2 || dh > 2;
+    if (jumped || (moved && now - this.pushedRectAt > 1000 / 30)) {
       this.pushedRect = rect;
+      this.pushedRectAt = now;
       void Bridge.setIslandRect(rect.x, rect.y, rect.w, rect.h);
     }
   }
